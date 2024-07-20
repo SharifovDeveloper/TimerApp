@@ -15,8 +15,4 @@
     <PackageReference Include="Stl.Fusion.Blazor" Version="6.8.11" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Data\" />
-  </ItemGroup>
-
 </Project>
