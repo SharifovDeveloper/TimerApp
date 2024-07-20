@@ -1,10 +1,16 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace TimerApp
 {
     public class Program
     {
         public static void Main(string[] args)
         {
+
             var builder = WebApplication.CreateBuilder(args);
+
+            builder.Services.AddDbContext<TimerContext>(options =>
+                   options.UseSqlServer(builder.Configuration.GetConnectionString("TimerConnection")));
 
             // Add services to the container.
             builder.Services.AddRazorPages();
