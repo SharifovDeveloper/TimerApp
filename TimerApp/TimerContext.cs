@@ -5,12 +5,11 @@ namespace TimerApp
 {
     public class TimerContext : DbContext
     {
-        public DbSet<Timer> Timer { get; set; }
+        public DbSet<TimerApp.Data.Timer> Timer { get; set; }
 
         public TimerContext(DbContextOptions<TimerContext> options)
            : base(options)
         {
-            Database.Migrate();
         }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
