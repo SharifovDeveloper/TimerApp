@@ -9,30 +9,14 @@
 @inherits ComputedStateComponent<(int, int, int)>
 @inject TimerApp.Services.TimerService TimerService
 @inject IFusionTime Time
-@inject NavigationManager Nav
-@inject ICommander Commander
 @inject TimerDataService TimerDataService
 
 @{
     var state = State.ValueOrDefault;
     var error = State.Error;
-    var remainingTime = state.Item1;
-    var elapsedTime = state.Item2;
-    var elapsedPercentage = state.Item3;
-
-    var progressWidth = $"{elapsedPercentage}%";
 }
 
 <h1 class="text-center">Timer App</h1>
-
-<div class="alert alert-primary text-center">
-    Open this page in <a href="@Nav.Uri" target="_blank">another window</a> to see it update in sync.
-</div>
-
-@if (error != null)
-{
-    <div class="alert alert-warning text-center" role="alert">Update error: @error.Message</div>
-}
 
 <div class="timer-controls text-center mb-4">
     <div class="input-group justify-content-center">
@@ -48,24 +32,24 @@
 
 <div class="timer-display text-center mb-4">
     <div class="progress-bar-container">
-        <div class="progress-bar" style="width: @progressWidth;"></div>
+        <div style="position: absolute; width: @state.Item3%; height: 100%; background: green;"></div>
     </div>
-    <div class="timer-text">@FormatTime(remainingTime)</div>
+    <div class="timer-text">@FormatTime(state.Item1)</div>
     <div class="timer-info">
         <div class="elapsed-time">
             <h4>Remaining Time</h4>
-            <p>@FormatTime(remainingTime)</p>
+            <p>@FormatTime(state.Item1)</p>
         </div>
         <div class="remaining-time">
             <h4>Elapsed Time</h4>
-            <p>@FormatTime(elapsedTime)</p>
+            <p>@FormatTime(state.Item2)</p>
         </div>
     </div>
 </div>
 
 @if (timerData == null)
 {
-    <p class="text-center">Loading...</p>
+    <p class="text-center">Procces...</p>
 }
 else
 {
@@ -175,7 +159,6 @@ else
     protected override async Task<(int, int, int)> ComputeState(CancellationToken cancellationToken)
     {
         var result = await TimerService.GetTimerInfo();
-        TimerDuration = result.Item1;
         timerData = await TimerService.GetData();
         var (isRunning, remainingTime, elapsedTime, elapsedPercentage, pause) = await TimerService.UpdateTimerStateAsync();
         IsRunning = isRunning;
@@ -205,13 +188,13 @@ else
     private async Task HandleStartTimer()
     {
         if (IsRunning || !isPause) return;
-        await Commander.Call(new Services.SetTimerDurationCommand(TimerDuration));
+        await TimerService.StartTimerAsync(TimerDuration);
         IsRunning = true; 
     }
 
     private async Task HandleRestartTimer()
     {
-        await Commander.Call(new SetTimerDurationCommand(0));
+        await TimerService.StartTimerAsync(TimerDuration);
         await HandleStartTimer(); 
     }
 
@@ -232,3 +215,6 @@ else
         _updateTimer?.Dispose();
     }
 }
+ 
+
+

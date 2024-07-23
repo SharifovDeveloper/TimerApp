@@ -1,42 +1,22 @@
-﻿using Stl.CommandR;
-using Stl.CommandR.Configuration;
-using Stl.Fusion;
-using System.Reactive;
+﻿using Stl.Fusion;
 
 namespace TimerApp.Services
 {
-    public record SetTimerDurationCommand(int Timer) : ICommand<Unit>;
-
-    public class TimerService : IComputeService, IHostedService
+    public class TimerService : IComputeService
     {
-        public int LoadState = 0;
-        public int TimerDuration;
-
-        private List<Data.Timer> timerData = new List<Data.Timer>();
-        private int remainingTime;
-        private int elapsedTime;
-        private DateTime startTime;
-        private DateTime endTime;
-        private bool timerIsRunning = false;
-        private int elapsedPercentage;
-       
-        private bool timerIsPaused = false;
-
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
-
-        [CommandHandler]
-        public virtual async Task StartTimerAsync(SetTimerDurationCommand command, CancellationToken cancellationToken = default)
+        public virtual async Task StartTimerAsync(int duration, CancellationToken cancellationToken = default)
         {
+            await _semaphore.WaitAsync(cancellationToken);
             if (Computed.IsInvalidating())
             {
                 _ = GetTimerInfo();
                 return;
             }
 
-            await _semaphore.WaitAsync(cancellationToken);
             try
             {
-                TimerDuration = command.Timer;
+                TimerDuration = duration;
                 remainingTime = TimerDuration;
                 elapsedTime = 0;
                 timerIsRunning = true;
@@ -51,7 +31,7 @@ namespace TimerApp.Services
         }
 
         [ComputeMethod]
-        public virtual async Task<(int TimerDuration, DateTime StartTime, DateTime EndTime)> GetTimerInfo()
+        public virtual async Task<(int, DateTime, DateTime)> GetTimerInfo()
         {
             await _semaphore.WaitAsync().ConfigureAwait(false);
             try
@@ -71,7 +51,7 @@ namespace TimerApp.Services
         }
 
         [ComputeMethod(AutoInvalidationDelay = 1)]
-        public virtual async Task<(bool IsRunning, int RemainingTime, int ElapsedTime, int ElapsedPercentage, bool IsPaused)> UpdateTimerStateAsync()
+        public virtual async Task<(bool, int, int, int, bool)> UpdateTimerStateAsync()
         {
             await _semaphore.WaitAsync();
             try
@@ -80,7 +60,6 @@ namespace TimerApp.Services
                 {
                     if (remainingTime <= 0)
                     {
-                        Console.WriteLine("Timer has finished.");
                         ResetTimer();
 
                         if (LoadState == 2)
@@ -91,8 +70,7 @@ namespace TimerApp.Services
                     else
                     {
                         elapsedTime++;
-                        remainingTime--; // Decrement remainingTime
-                        Console.WriteLine($"Remaining Time: {remainingTime}");
+                        remainingTime--;
                         elapsedPercentage = TimerDuration > 0 ? (elapsedTime * 100) / TimerDuration : 0;
                     }
                 }
@@ -107,7 +85,6 @@ namespace TimerApp.Services
 
         public async Task SaveTimerDataAsync(DateTime startTime, DateTime endTime)
         {
-            //await _semaphore.WaitAsync().ConfigureAwait(false);
             try
             {
                 var timerEntry = new Data.Timer
@@ -150,15 +127,18 @@ namespace TimerApp.Services
             LoadState = (LoadState == 1) ? 2 : 0;
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken)
-        {
-            await Console.Out.WriteLineAsync("Started");
-        }
+        public int LoadState = 0;
+        public int TimerDuration;
 
-        public async Task StopAsync(CancellationToken cancellationToken)
-        {
-            await Console.Out.WriteLineAsync("Timer service stopping...");
-            await Task.CompletedTask;
-        }
+        private List<Data.Timer> timerData = new List<Data.Timer>();
+        private int remainingTime;
+        private int elapsedTime;
+        private DateTime startTime;
+        private DateTime endTime;
+        private bool timerIsRunning = false;
+        private int elapsedPercentage;
+        private bool timerIsPaused = false;
     }
 }
+
+

@@ -20,13 +20,14 @@ namespace TimerApp
             var fusion = builder.Services.AddFusion();
             fusion.AddFusionTime();
             fusion.AddService<TimerService>();
+            //builder.Services.AddScoped<TimerService>();
 
             builder.Services.AddServerSideBlazor();
 
             // Add Razor Pages services
             builder.Services.AddRazorPages();
 
-            builder.Services.AddHostedService(c => c.GetRequiredService<TimerService>());
+           // builder.Services.AddHostedService(c => c.GetRequiredService<TimerService>());
 
             // Default update delay is set to 0.1s
             builder.Services.AddTransient<IUpdateDelayer>(c => new UpdateDelayer(c.UIActionTracker(), 0.1));
