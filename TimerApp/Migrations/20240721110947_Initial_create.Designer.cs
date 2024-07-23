@@ -12,7 +12,7 @@ using TimerApp;
 namespace TimerApp.Migrations
 {
     [DbContext(typeof(TimerContext))]
-    [Migration("20240721104453_Initial_create")]
+    [Migration("20240721110947_Initial_create")]
     partial class Initial_create
     {
         /// <inheritdoc />
@@ -27,11 +27,9 @@ namespace TimerApp.Migrations
 
             modelBuilder.Entity("TimerApp.Data.Timer", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("EndTime")
                         .HasColumnType("datetime2");

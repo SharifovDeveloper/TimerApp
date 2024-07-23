@@ -1,0 +1,234 @@
+﻿@page "/timer"
+@using Stl.Fusion.Blazor
+@using Stl.Fusion.Extensions
+@using Stl.CommandR
+@using System.Threading
+@using Timer = TimerApp.Data.Timer
+@using TimerApp.Services
+@using TimerAlias = System.Timers.Timer
+@inherits ComputedStateComponent<(int, int, int)>
+@inject TimerApp.Services.TimerService TimerService
+@inject IFusionTime Time
+@inject NavigationManager Nav
+@inject ICommander Commander
+@inject TimerDataService TimerDataService
+
+@{
+    var state = State.ValueOrDefault;
+    var error = State.Error;
+    var remainingTime = state.Item1;
+    var elapsedTime = state.Item2;
+    var elapsedPercentage = state.Item3;
+
+    var progressWidth = $"{elapsedPercentage}%";
+}
+
+<h1 class="text-center">Timer App</h1>
+
+<div class="alert alert-primary text-center">
+    Open this page in <a href="@Nav.Uri" target="_blank">another window</a> to see it update in sync.
+</div>
+
+@if (error != null)
+{
+    <div class="alert alert-warning text-center" role="alert">Update error: @error.Message</div>
+}
+
+<div class="timer-controls text-center mb-4">
+    <div class="input-group justify-content-center">
+        <input type="number" @bind="TimerDuration"  placeholder="Enter timer duration (seconds)" class="form-control w-auto" disabled="@IsRunning" />
+        <div class="input-group-append">
+            <button @onclick="HandleStartTimer" class="btn btn-success ml-2">Start</button>
+            <button @onclick="HandlePauseTimer" class="btn btn-warning ml-2">Pause</button>
+            <button @onclick="HandleRestartTimer" class="btn btn-danger ml-2">Restart</button>
+        </div>
+    </div>
+    <p hidden="@isPause" class="text-danger mt-2">Stopping...</p>
+</div>
+
+<div class="timer-display text-center mb-4">
+    <div class="progress-bar-container">
+        <div class="progress-bar" style="width: @progressWidth;"></div>
+    </div>
+    <div class="timer-text">@FormatTime(remainingTime)</div>
+    <div class="timer-info">
+        <div class="elapsed-time">
+            <h4>Remaining Time</h4>
+            <p>@FormatTime(remainingTime)</p>
+        </div>
+        <div class="remaining-time">
+            <h4>Elapsed Time</h4>
+            <p>@FormatTime(elapsedTime)</p>
+        </div>
+    </div>
+</div>
+
+@if (timerData == null)
+{
+    <p class="text-center">Loading...</p>
+}
+else
+{
+    <table class="table table-striped text-center">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var timer in timerData)
+            {
+                <tr>
+                    <td>@timer.Id</td>
+                    <td>@timer.StartTime</td>
+                    <td>@timer.EndTime</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+
+    .progress-bar-container {
+        position: relative;
+        width: 100%;
+        height: 30px;
+        background-color: #e0e0e0;
+        border-radius: 5px;
+        overflow: hidden;
+        margin: 20px auto;
+        max-width: 500px;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background-color: #4caf50;
+        transition: width 0.1s linear;
+    }
+
+    .timer-text {
+        font-size: 36px;
+        font-weight: bold;
+        color: #333;
+        margin: 10px 0;
+    }
+
+    .timer-info {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 20px;
+    }
+
+    .elapsed-time, .remaining-time {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        width: 40%;
+    }
+
+        .elapsed-time h4, .remaining-time h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .elapsed-time p, .remaining-time p {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4caf50;
+        }
+
+    .table {
+        max-width: 800px;
+        margin: 20px auto;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+        .table thead {
+            background-color: #343a40;
+            color: #fff;
+        }
+
+            .table thead th {
+                padding: 10px;
+            }
+
+        .table tbody td {
+            padding: 10px;
+        }
+</style>
+
+@code {
+    public ICollection<TimerApp.Data.Timer> timerData = new List<TimerApp.Data.Timer>();
+    public bool IsRunning = false;
+    public bool isPause = true;
+    public int TimerDuration { get; set; }
+
+    private TimerAlias _updateTimer;
+    private const int UpdateInterval = 1000; // 1 second
+
+    protected override async Task<(int, int, int)> ComputeState(CancellationToken cancellationToken)
+    {
+        var result = await TimerService.GetTimerInfo();
+        TimerDuration = result.Item1;
+        timerData = await TimerService.GetData();
+        var (isRunning, remainingTime, elapsedTime, elapsedPercentage, pause) = await TimerService.UpdateTimerStateAsync();
+        IsRunning = isRunning;
+        isPause = !pause;
+        return (remainingTime, elapsedTime, elapsedPercentage);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        timerData = await TimerService.GetData();
+         StartUpdateTimer();
+        await base.OnInitializedAsync();
+    }
+
+    private void StartUpdateTimer()
+    {
+        _updateTimer = new TimerAlias(UpdateInterval);
+        _updateTimer.Elapsed += async (sender, e) => await UpdateProgress();
+        _updateTimer.Start();
+    }
+
+    private async Task UpdateProgress()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleStartTimer()
+    {
+        if (IsRunning || !isPause) return;
+        await Commander.Call(new Services.SetTimerDurationCommand(TimerDuration));
+        IsRunning = true; 
+    }
+
+    private async Task HandleRestartTimer()
+    {
+        await Commander.Call(new SetTimerDurationCommand(0));
+        await HandleStartTimer(); 
+    }
+
+    private async Task HandlePauseTimer()
+    {
+        var result = TimerService.TogglePause();
+        isPause = !result;
+    }
+
+    private string FormatTime(int seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return $"{ts.Minutes:D2}:{ts.Seconds:D2}";
+    }
+
+    public void Dispose()
+    {
+        _updateTimer?.Dispose();
+    }
+}
